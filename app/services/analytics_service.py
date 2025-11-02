@@ -12,7 +12,40 @@ from app.models.analytics import (
 )
 
 
-class AnalyticsService:
+# ==================== EXPORTS FOR ROUTES ====================
+# Estas funciones se exportan para compatibilidad con las rutas
+
+async def calculate_patient_ltv(patient_id: str, db) -> float:
+    """Export function for calculate_patient_ltv"""
+    return await AnalyticsService.calculate_patient_ltv(patient_id, db)
+
+async def analyze_patient_segments(db) -> List[PatientSegment]:
+    """Export function for analyze_patient_segments"""
+    return await AnalyticsService.analyze_patient_segments(db)
+
+async def calculate_conversion_rate(db) -> float:
+    """Export function for calculate_conversion_rate"""
+    return await AnalyticsService.calculate_conversion_rate(db)
+
+async def calculate_treatment_roi(treatment_name: str, db) -> TreatmentROI:
+    """Export function for calculate_treatment_roi"""
+    return await AnalyticsService.calculate_treatment_roi(treatment_name, db)
+
+async def analyze_dentist_performance(dentist_id: str, db) -> DentistPerformance:
+    """Export function for analyze_dentist_performance"""
+    return await AnalyticsService.analyze_dentist_performance(dentist_id, db)
+
+async def predict_demand(months_ahead: int, db) -> DemandForecast:
+    """Export function for predict_demand"""
+    return await AnalyticsService.predict_demand(months_ahead, db)
+
+async def calculate_churn_risk(patient_id: str, db) -> str:
+    """Export function for calculate_churn_risk"""
+    return await AnalyticsService.calculate_churn_risk(patient_id, db)
+
+async def analyze_conversion_funnel(period_start: datetime, period_end: datetime, db) -> ConversionFunnel:
+    """Export function for analyze_conversion_funnel"""
+    return await AnalyticsService.analyze_conversion_funnel(period_start, period_end, db)class AnalyticsService:
     """Servicios principales de analytics"""
     
     @staticmethod
@@ -417,4 +450,128 @@ class AnalyticsService:
             avg_transaction_value=round(total_revenue / len(facturas), 2) if facturas else 0,
             revenue_forecast_next_month=round(total_revenue * 1.1, 2),
             growth_rate=8.5  # Placeholder
+        )
+    
+    @staticmethod
+    async def analyze_patient_segments(db) -> List[PatientSegment]:
+        """Analizar segmentos de pacientes"""
+        patients = await db.patients.find({}).to_list(length=None)
+        segments = []
+        
+        # Obtener analytics de cada paciente
+        for patient in patients:
+            patient_id = str(patient["_id"])
+            analytics = await AnalyticsService.calculate_patient_analytics(patient_id, db)
+            
+            segment = PatientSegment(
+                patient_id=patient_id,
+                segment_name=analytics.segment_name,
+                segment_value=analytics.segment_value,
+                ltv=analytics.ltv,
+                visit_frequency=analytics.visit_frequency,
+                churn_risk=analytics.churn_risk,
+                recommended_actions=analytics.recommended_actions
+            )
+            segments.append(segment)
+        
+        return segments
+    
+    @staticmethod
+    async def calculate_conversion_rate(db) -> float:
+        """Calcular tasa de conversión general"""
+        # Obtener conversiones del embudo
+        funnel = await AnalyticsService.calculate_conversion_funnel(
+            datetime.now() - timedelta(days=30), datetime.now(), db
+        )
+        return funnel.overall_conversion_rate
+    
+    @staticmethod
+    async def predict_demand(months_ahead: int, db) -> DemandForecast:
+        """Predecir demanda futura"""
+        # Obtener datos históricos de citas
+        historic_appointments = await db.appointments.find({
+            "date": {
+                "$gte": datetime.now() - timedelta(days=365),
+                "$lte": datetime.now()
+            }
+        }).to_list(length=None)
+        
+        # Predicción simple basada en tendencias
+        monthly_demand = len(historic_appointments) / 12
+        predicted_demand = monthly_demand * (1 + 0.05) ** months_ahead  # 5% crecimiento
+        
+        return DemandForecast(
+            predicted_demand=round(predicted_demand),
+            confidence_level=0.75,
+            trend_direction="upward",
+            seasonal_factors={
+                "enero": 1.0,
+                "febrero": 0.9,
+                "marzo": 1.1,
+                "abril": 1.0,
+                "mayo": 1.0,
+                "junio": 0.8,
+                "julio": 0.7,
+                "agosto": 0.6,
+                "septiembre": 1.1,
+                "octubre": 1.2,
+                "noviembre": 1.1,
+                "diciembre": 0.9
+            }
+        )
+    
+    @staticmethod
+    async def calculate_churn_risk(patient_id: str, db) -> str:
+        """Calcular riesgo de churn"""
+        analytics = await AnalyticsService.calculate_patient_analytics(patient_id, db)
+        return analytics.churn_risk
+    
+    @staticmethod
+    async def analyze_conversion_funnel(
+        period_start: datetime, period_end: datetime, db
+    ) -> ConversionFunnel:
+        """Analizar embudo de conversión"""
+        # Obtener consultas y tratamientos del periodo
+        appointments = await db.appointments.find({
+            "date": {
+                "$gte": period_start,
+                "$lte": period_end
+            }
+        }).to_list(length=None)
+        
+        total_inquiries = len(appointments)
+        consultations = len([a for a in appointments if a.get("status") == "completada"])
+        treatments = len([a for a in appointments if a.get("treatment_name")])
+        
+        return ConversionFunnel(
+            period_start=period_start,
+            period_end=period_end,
+            total_inquiries=total_inquiries,
+            consultations=consultations,
+            treatments=treatments,
+            consultation_conversion_rate=(consultations / total_inquiries * 100) if total_inquiries > 0 else 0,
+            treatment_conversion_rate=(treatments / consultations * 100) if consultations > 0 else 0,
+            overall_conversion_rate=(treatments / total_inquiries * 100) if total_inquiries > 0 else 0
+        )
+    
+    @staticmethod
+    async def analyze_dentist_performance(dentist_id: str, db) -> DentistPerformance:
+        """Analizar rendimiento de dentista"""
+        # Obtener citas del dentista
+        appointments = await db.appointments.find({
+            "dentist_id": dentist_id
+        }).to_list(length=None)
+        
+        total_appointments = len(appointments)
+        completed_appointments = len([a for a in appointments if a.get("status") == "completada"])
+        
+        return DentistPerformance(
+            dentist_id=dentist_id,
+            total_appointments=total_appointments,
+            completed_appointments=completed_appointments,
+            completion_rate=(completed_appointments / total_appointments * 100) if total_appointments > 0 else 0,
+            avg_appointment_duration=30.0,  # Placeholder
+            patient_satisfaction_score=4.5,
+            revenue_generated=2500.0  # Placeholder
+        )
         )
