@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional, Literal
+from typing import List, Dict, Optional, Literal, Any
 from datetime import datetime, date
 from bson import ObjectId
 from app.models.patient import PyObjectId
@@ -113,7 +113,7 @@ class DentistPerformance(BaseModel):
     punctuality_score: float = Field(..., ge=0, le=100, description="Porcentaje citas a tiempo")
     
     # Especialización
-    top_specializations: List[Dict[str, any]] = Field(default_factory=list, description="Especializaciones principales")
+    top_specializations: List[Dict[str, Any]] = Field(default_factory=list, description="Especializaciones principales")
 
 
 class DemandForecast(BaseModel):
