@@ -12,11 +12,9 @@ from ...database import db
 from ...models.analytics import (
     PatientSegment,
     PatientAnalytics,
-    TreatmentAnalytics,
     TreatmentROI,
     DentistPerformance,
     MonthlyTrend,
-    PredictionData
 )
 from ...services.analytics_service import (
     calculate_patient_ltv,
